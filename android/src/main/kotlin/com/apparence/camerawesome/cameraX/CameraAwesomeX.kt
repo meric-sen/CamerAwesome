@@ -15,6 +15,7 @@ import android.util.Size
 import androidx.camera.camera2.Camera2Config
 import androidx.camera.camera2.interop.ExperimentalCamera2Interop
 import androidx.camera.core.*
+import androidx.camera.core.impl.utils.CameraOrientationUtil
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.FileOutputOptions
 import androidx.camera.video.VideoRecordEvent
@@ -123,6 +124,7 @@ class CameraAwesomeX : CameraInterface, FlutterPlugin, ActivityAware {
         aspectRatio: String,
         zoom: Double,
         mirrorFrontCamera: Boolean,
+        enableRotation: Boolean,
         enablePhysicalButton: Boolean,
         flashMode: String,
         captureMode: String,
@@ -162,8 +164,10 @@ class CameraAwesomeX : CameraInterface, FlutterPlugin, ActivityAware {
             this.enableAudioRecording = videoOptions?.enableAudio ?: true
         }
         this.exifPreferences = exifPreferences
-        orientationStreamListener =
-            OrientationStreamListener(activity!!, listOf(sensorOrientationListener, cameraState))
+          if (enableRotation) {
+            orientationStreamListener =
+                    OrientationStreamListener(activity!!, listOf(sensorOrientationListener, cameraState))
+        }
         imageStreamChannel.setStreamHandler(cameraState)
         if (mode != CaptureModes.ANALYSIS_ONLY) {
             cameraState.updateLifecycle(activity!!)
@@ -380,7 +384,9 @@ class CameraAwesomeX : CameraInterface, FlutterPlugin, ActivityAware {
         val outputFileOptions =
             ImageCapture.OutputFileOptions.Builder(imageFile).setMetadata(metadata).build()
 //        for (imageCapture in cameraState.imageCaptures) {
-        imageCapture.targetRotation = orientationStreamListener!!.surfaceOrientation
+           imageCapture.targetRotation = if (orientationStreamListener != null) 
+        orientationStreamListener!!.surfaceOrientation else 
+        CameraOrientationUtil.degreesToSurfaceRotation(0)
         imageCapture.takePicture(outputFileOptions,
             ContextCompat.getMainExecutor(activity!!),
             object : ImageCapture.OnImageSavedCallback {
@@ -511,7 +517,9 @@ class CameraAwesomeX : CameraInterface, FlutterPlugin, ActivityAware {
                         }
                     }
                 }
-                videoCapture.targetRotation = orientationStreamListener!!.surfaceOrientation
+                  videoCapture.targetRotation = if (orientationStreamListener != null) 
+                orientationStreamListener!!.surfaceOrientation else 
+                CameraOrientationUtil.degreesToSurfaceRotation(0)
                 cameraState.recordings!!.add(videoCapture.output.prepareRecording(
                     activity!!, FileOutputOptions.Builder(File(paths[index]!!)).build()
                 ).apply { if (cameraState.enableAudioRecording && !ignoreAudio) withAudioEnabled() }
